@@ -64,7 +64,7 @@ def get_news_headlines():
     return "\n\n".join(news_items) if news_items else "Global financial markets reacting to macro indicators."
 
 def generate_story_report(is_morning, date_str, market_data, headlines):
-    """Uses Gemini to weave raw numbers and headlines into a Tamil story-style analysis."""
+    """Uses Gemini to weave raw numbers and headlines into a Tamil story-style analysis with fallback."""
     session_type = "Morning Global Pulse & Daily Brief (7:00 AM IST)" if is_morning else "Evening Market & Global Closure Summary (8:00 PM IST)"
     
     prompt = f"""
@@ -91,12 +91,21 @@ def generate_story_report(is_morning, date_str, market_data, headlines):
     - Keep total length under 3,800 characters so it fits cleanly in Telegram.
     """
 
-    # Updated to the correct active model name
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",  # <--- புதிய மாடல் பெயர்
-        contents=prompt,
-    )
-    return response.text
+    # Try primary model, fallback to alternative if 503/unavailable occurs
+    models_to_try = ["gemini-3.8-flash", "gemini-2.5-flash"]
+    
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            return response.text
+        except Exception as e:
+            print(f"Model {model_name} failed due to: {e}. Trying fallback...")
+            continue
+            
+    raise Exception("All Gemini models are currently busy. Please try again shortly.")
 
 def send_telegram_message(text):
     """Sends message to Telegram, splitting safely if over 4000 characters."""
