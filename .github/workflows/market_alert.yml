@@ -28,6 +28,6 @@ jobs:
 
       - name: Run Telegram Bot Script
         env:
-          BOT_TOKEN: ${{ secrets.8844114153:AAH2ckVvRNm42bkbo0_c2oipsUjuauL4wr4 }}
-          CHAT_ID: ${{ secrets.6114756103 }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python main.py
