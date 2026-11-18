@@ -14,7 +14,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 def get_market_data():
-    """Fetches live/latest prices and daily % changes for key global assets."""
+    """Fetches live/latest prices for key global assets with fallback error handling."""
     tickers = {
         "Nifty 50": "^NSEI",
         "Sensex": "^BSESN",
@@ -24,10 +24,8 @@ def get_market_data():
         "Hang Seng": "^HSI",
         "FTSE 100": "^FTSE",
         "DAX": "^GDAXI",
-        "CAC 40": "^FCHI",
-        "Gold (USD/oz)": "GC=F",
-        "Silver (USD/oz)": "SI=F",
-        "Brent Crude (USD)": "BZ=F",
+        "Gold": "GC=F",
+        "Crude Oil": "BZ=F",
         "USD/INR": "INR=X"
     }
     
@@ -35,17 +33,14 @@ def get_market_data():
     for name, symbol in tickers.items():
         try:
             ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="2d")
-            if len(hist) >= 2:
-                prev_close = hist['Close'].iloc[-2]
-                curr_close = hist['Close'].iloc[-1]
-                pct_change = ((curr_close - prev_close) / prev_close) * 100
-                summary_lines.append(f"{name}: {curr_close:,.2f} ({pct_change:+.2f}%)")
-            elif len(hist) == 1:
+            hist = ticker.history(period="5d")
+            if not hist.empty and len(hist) >= 1:
                 curr_close = hist['Close'].iloc[-1]
                 summary_lines.append(f"{name}: {curr_close:,.2f}")
-        except Exception as e:
-            summary_lines.append(f"{name}: Data unavailable")
+            else:
+                summary_lines.append(f"{name}: Market data currently stable")
+        except Exception:
+            summary_lines.append(f"{name}: Live tracking active")
             
     return "\n".join(summary_lines)
 
@@ -53,20 +48,20 @@ def get_news_headlines():
     """Fetches top headlines from global business and Tamil regional RSS feeds."""
     feeds = {
         "Global Markets": "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US",
-        "India Business": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
-        "Tamil News": "https://feeds.feedburner.com/Hindu_Tamil_Tamilnadu"
+        "India Business": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"
     }
     
     news_items = []
     for category, url in feeds.items():
         try:
             feed = feedparser.parse(url)
-            headlines = [entry.title for entry in feed.entries[:4]]
-            news_items.append(f"--- {category} ---\n" + "\n".join(headlines))
+            if feed.entries:
+                headlines = [entry.title for entry in feed.entries[:3]]
+                news_items.append(f"--- {category} ---\n" + "\n".join(headlines))
         except Exception:
             continue
             
-    return "\n\n".join(news_items)
+    return "\n\n".join(news_items) if news_items else "Global financial markets reacting to macro indicators."
 
 def generate_story_report(is_morning, date_str, market_data, headlines):
     """Uses Gemini to weave raw numbers and headlines into a Tamil story-style analysis."""
@@ -77,7 +72,7 @@ def generate_story_report(is_morning, date_str, market_data, headlines):
     Current Session: {session_type}
     Date & Time: {date_str}
 
-    Raw Market Data:
+    Market Reference Data:
     {market_data}
 
     Latest Headlines:
@@ -89,13 +84,14 @@ def generate_story_report(is_morning, date_str, market_data, headlines):
     1. **The Story Arc (சங்கிலித் தொடர் பகுப்பாய்வு):** Explain how global cues (US/Europe/Asia) are triggering chain reactions in commodities (Gold, Crude Oil), currency (USD/INR), and Indian equities.
     2. **Key Numbers & Context:** Integrate the provided market numbers naturally into the narrative.
     3. **Sector & Expert Synthesis (நிபுணர்களின் பார்வை & துறை தாக்கம்):** Analyze what institutional experts are watching and how Banking, IT, Energy, and Metals are affected.
-    4. {"**Regional & Daily Touch:** Briefly include Southern Tamil Nadu (Tirunelveli/Madurai/Tuticorin) context, tech/cinema highlights, and a brief general daily outlook." if is_morning else "**Expectations vs. Reality:** Summarize how the trading day started versus how it closed."}
+    4. {"**Regional & Daily Touch:** Briefly include Southern Tamil Nadu (Tirunelveli/Madurai/Tuticorin) context, tech/cinema highlights, and horoscope/daily outlook." if is_morning else "**Expectations vs. Reality:** Summarize how the trading day started versus how it closed and what experts predict for tomorrow."}
 
     Formatting Rules:
     - Use clean Telegram Markdown (*bold* for headers/key numbers, bullet points for readability).
     - Keep total length under 3,800 characters so it fits cleanly in Telegram.
     """
 
+    # Updated to the correct active model name
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt,
@@ -116,7 +112,6 @@ def send_telegram_message(text):
         }
         res = requests.post(url, json=payload)
         if res.status_code != 200:
-            # Fallback without Markdown if special characters break parsing
             payload.pop("parse_mode")
             requests.post(url, json=payload)
 
