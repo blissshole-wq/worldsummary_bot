@@ -2,11 +2,10 @@ name: Daily Market & News Alert
 
 on:
   schedule:
-    # காலை 7:00 AM IST (1:30 AM UTC)
+    # 7:00 AM IST (1:30 AM UTC)
     - cron: '30 1 * * *'
-    # இரவு 8:00 PM IST (2:30 PM UTC)
+    # 8:00 PM IST (2:30 PM UTC)
     - cron: '30 14 * * *'
-  # எப்போது வேண்டுமானாலும் மேனுவலாக டெஸ்ட் செய்து பார்க்க:
   workflow_dispatch:
 
 jobs:
@@ -20,14 +19,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          pip install requests pytz
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run Telegram Bot Script
+      - name: Run Automated Story Bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
