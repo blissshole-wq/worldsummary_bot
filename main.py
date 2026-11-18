@@ -93,7 +93,7 @@ def generate_story_report(is_morning, date_str, market_data, headlines):
 
     # Updated to the correct active model name
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.8-flash",  # <--- புதிய மாடல் பெயர்
         contents=prompt,
     )
     return response.text
